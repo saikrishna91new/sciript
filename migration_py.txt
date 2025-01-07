@@ -1,0 +1,101 @@
+get sorted triggers:
+
+
+from azure.mgmt.datafactory import DataFactoryManagementClient
+from azure.identity import DefaultAzureCredential
+from collections import deque
+
+def get_sorted_trigger(data_factory_name, resource_group_name):
+    # Initialize the DataFactory client
+    credential = DefaultAzureCredential()
+    client = DataFactoryManagementClient(credential, '<subscription_id>')
+
+    # Get triggers
+    triggers = client.triggers.list_by_factory(resource_group_name, data_factory_name)
+
+    trigger_dict = {}
+    visited = {}
+    stack = deque()
+
+    # Map triggers by name
+    for trigger in triggers:
+        trigger_dict[trigger.name] = trigger
+
+    # Call to function like Push-TriggersToList (assumed to be implemented in Python)
+    for trigger in triggers:
+        push_triggers_to_list(trigger, trigger_dict, visited, stack)
+
+    # Build the sorted list
+    sorted_list = []
+    while stack:
+        sorted_list.append(stack.pop())
+
+    return sorted_list
+
+
+
+
+
+>>>>
+
+
+import json
+from azure.core.exceptions import AzureError
+from azure.mgmt.datafactory.models import ScheduleTrigger, TumblingWindowTrigger, BlobEventsTrigger, CustomEventsTrigger
+
+def compare_trigger_payload(trigger_deployed, trigger_in_template, template_parameters):
+    try:
+        print(f"Comparing '{trigger_deployed.name}' trigger payload")
+        
+        # Deserialize the trigger template JSON
+        trigger_in_template['properties']['typeProperties'] = {**trigger_in_template['properties']['typeProperties']}
+        add_prop_dict = {'typeProperties': trigger_in_template['properties']['typeProperties']}
+        trigger_in_template['properties']['additionalProperties'] = add_prop_dict
+        trigger_in_template['properties'].pop('typeProperties')
+
+        trigger_template_json = json.dumps(trigger_in_template['properties'])
+        updated_template_json = update_trigger_template(trigger_template_json, template_parameters)
+        payload = json.loads(updated_template_json)
+
+        if trigger_deployed.properties.runtime_state != payload['runtimeState']:
+            print(f"Change detected in '{trigger_deployed.name}' trigger payload - runtimeState changed")
+            return True
+
+        # Handle specific trigger types
+        if isinstance(trigger_deployed, ScheduleTrigger):
+            # Convert weekDays and monthlyOccurrences
+            if 'weekDays' in payload['recurrence']['schedule']:
+                payload['recurrence']['schedule']['weekDays'] = [day.value for day in payload['recurrence']['schedule']['weekDays']]
+            if 'monthlyOccurrences' in payload['recurrence']['schedule']:
+                for occurrence in payload['recurrence']['schedule']['monthlyOccurrences']:
+                    occurrence['day'] = occurrence['day'].value
+            
+            trigger_payload = json.loads(json.dumps(payload))  # Reserialize
+            return compare_schedule_trigger(trigger_deployed, trigger_payload)
+
+        elif isinstance(trigger_deployed, TumblingWindowTrigger):
+            trigger_payload = json.loads(json.dumps(payload))
+            return compare_tumbling_window_trigger(trigger_deployed, trigger_payload)
+
+        elif isinstance(trigger_deployed, BlobEventsTrigger):
+            trigger_payload = json.loads(json.dumps(payload))
+            return compare_blob_events_trigger(trigger_deployed, trigger_payload)
+
+        elif isinstance(trigger_deployed, CustomEventsTrigger):
+            trigger_payload = json.loads(json.dumps(payload))
+            return compare_custom_events_trigger(trigger_deployed, trigger_payload)
+
+        print(f"##[warning] Comparison terminated as trigger type '{type(trigger_deployed)}' not match")
+        return True
+
+    except AzureError as e:
+        print(f"##[warning] Unable to compare '{trigger_deployed.name}' trigger payload: {str(e)}")
+        return True
+
+
+
+
+>>>>>
+
+
+
