@@ -3,7 +3,7 @@ kind: Ingress
 metadata:
   name: ingress-cpr
   #annotations:
-    #kubernetes.io/ingress.class: nginx
+    #kubernetes.io/ingress.class: nginx  
 spec:
   ingressClassName: nginx
   #defaultBackend:
@@ -19,5 +19,5 @@ spec:
             backend:
               service:
                 name: my-service
-                port:
+                port: 
                   number: 80
